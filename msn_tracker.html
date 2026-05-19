@@ -5,7 +5,814 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>MSN 경쟁사 추적기</title>
 
-<!-- Firebase SDK -->
+<!-- Firebase SDK --><!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>MSN 경쟁사 추적기</title>
+
+<!-- Firebase SDK (Storage 제거) -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<!-- Icons & XLSX -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#111827;background:#f9fafb;min-height:100vh}
+.wrap{max-width:1100px;margin:0 auto;padding:1.5rem 1rem}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;flex-wrap:wrap;gap:8px}
+.header h2{font-size:18px;font-weight:600;display:flex;align-items:center;gap:8px}
+.badge{font-size:11px;padding:3px 8px;border-radius:6px;background:#f3f4f6;color:#6b7280;border:.5px solid #e5e7eb}
+.toolbar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#fff;border-radius:10px;margin-bottom:1rem;flex-wrap:wrap;border:.5px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.toolbar-label{font-size:12px;color:#6b7280;white-space:nowrap}
+.divider-v{width:.5px;height:20px;background:#f3f4f6;margin:0 2px}
+.save-status{font-size:11px;padding:3px 9px;border-radius:99px;display:inline-flex;align-items:center;gap:5px;margin-left:auto;white-space:nowrap}
+.save-ok{background:#EAF3DE;color:#3B6D11;border:.5px solid #C0DD97}
+.save-ing{background:#f3f4f6;color:#6b7280;border:.5px solid #e5e7eb}
+.save-dot{width:7px;height:7px;border-radius:50%}
+.save-ok .save-dot{background:#3B6D11}
+.save-ing .save-dot{background:#9ca3af}
+.tabs{display:flex;gap:4px;margin-bottom:1.25rem;border-bottom:.5px solid #e5e7eb;flex-wrap:wrap}
+.tab{font-size:13px;padding:6px 14px;border:none;background:none;cursor:pointer;color:#6b7280;border-bottom:2px solid transparent;margin-bottom:-.5px}
+.tab.active{color:#111827;border-bottom:2px solid #1D9E75;font-weight:500}
+.card{background:#fff;border:.5px solid #e5e7eb;border-radius:10px;padding:1rem 1.25rem;margin-bottom:1rem;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group.full{grid-column:1/-1}
+label{font-size:12px;color:#6b7280}
+input,select{width:100%;font-size:13px;padding:7px 10px;border:.5px solid #e5e7eb;border-radius:6px;background:#fff;color:#111827}
+input:focus,select:focus{outline:none;border-color:#1D9E75}
+.btn{padding:7px 14px;border-radius:6px;border:.5px solid #e5e7eb;background:#fff;color:#111827;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{background:#f9fafb}
+.btn-primary{background:#1D9E75;color:#fff;border-color:#1D9E75}
+.btn-primary:hover{background:#0F6E56}
+.btn-xl{background:#EAF3DE;color:#3B6D11;border-color:#C0DD97}
+.btn-xl:hover{background:#C0DD97}
+.btn-im{background:#E6F1FB;color:#185FA5;border-color:#85B7EB}
+.btn-im:hover{background:#B5D4F4}
+.btn-json{background:#EEEDFE;color:#3C3489;border-color:#AFA9EC;font-size:12px;padding:5px 10px}
+.btn-json:hover{background:#CECBF6}
+.btn-ai{background:#EEEDFE;color:#3C3489;border-color:#AFA9EC;font-size:12px;padding:5px 12px}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-danger{border-color:#fca5a5;color:#ef4444}
+.btn-danger:hover{background:#fef2f2}
+.section-title{font-size:13px;font-weight:500;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem}
+.tbl-wrap{overflow-x:auto;border-radius:10px;border:.5px solid #e5e7eb;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
+th{font-size:11px;font-weight:500;color:#6b7280;padding:8px 12px;text-align:left;border-bottom:.5px solid #e5e7eb;background:#f9fafb;white-space:nowrap}
+td{padding:7px 10px;border-bottom:.5px solid #f3f4f6;vertical-align:middle;word-break:break-word}
+tr:last-child td{border-bottom:none}
+tr.data-row:hover td{background:#f9fafb;cursor:pointer}
+tr.editing-row td{background:#E1F5EE!important;border-bottom:none}
+tr.editing-detail td{background:#E1F5EE;padding:0}
+tr.editing-detail{border-bottom:.5px solid #e5e7eb}
+.edit-panel{padding:12px 14px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.edit-panel .full{grid-column:1/-1}
+.ep-label{font-size:11px;color:#0F6E56;margin-bottom:3px;font-weight:500}
+.ep-input{width:100%;font-size:12px;padding:5px 8px;border:.5px solid #9FE1CB;border-radius:6px;background:#fff;color:#111827}
+.ep-input:focus{outline:none;border-color:#1D9E75}
+.ep-actions{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 12px}
+.pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:99px;font-weight:500}
+.pill-green{background:#EAF3DE;color:#3B6D11}
+.pill-gray{background:#f3f4f6;color:#6b7280}
+.pill-coral{background:#FAECE7;color:#993C1D}
+.pill-purple{background:#EEEDFE;color:#3C3489}
+.pill-teal{background:#E1F5EE;color:#0F6E56}
+.pill-amber{background:#FAEEDA;color:#854F0B}
+.empty{text-align:center;padding:2.5rem;color:#9ca3af;font-size:13px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.25rem}
+.stat-card{background:#fff;border:.5px solid #e5e7eb;border-radius:8px;padding:.75rem 1rem;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.stat-card .val{font-size:22px;font-weight:600;line-height:1.2}
+.stat-card .lbl{font-size:12px;color:#6b7280;margin-top:2px}
+.ai-box{background:#EEEDFE;border:.5px solid #AFA9EC;border-radius:10px;padding:1rem 1.25rem;margin-bottom:1rem}
+.ai-result{font-size:13px;color:#3C3489;white-space:pre-wrap;max-height:300px;overflow-y:auto;margin-top:.5rem}
+.filter-bar{display:flex;gap:8px;align-items:center;margin-bottom:1rem;flex-wrap:wrap}
+.filter-bar select{width:auto}
+.spinner{display:inline-block;width:13px;height:13px;border:2px solid #AFA9EC;border-top-color:#3C3489;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.upload-area{border:1.5px dashed #e5e7eb;border-radius:10px;padding:1.25rem;text-align:center;cursor:pointer;background:#f9fafb;position:relative}
+.upload-area:hover,.upload-area.drag{border-color:#1D9E75;background:#E1F5EE}
+.upload-area p{font-size:13px;color:#6b7280;margin-top:6px}
+.upload-area .sub{font-size:11px;color:#9ca3af;margin-top:2px}
+.preview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px;margin-top:10px}
+.preview-item{position:relative;border-radius:6px;overflow:hidden;border:.5px solid #e5e7eb;aspect-ratio:1;background:#f9fafb}
+.preview-item img{width:100%;height:100%;object-fit:cover;display:block}
+.preview-del{position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.55);border:none;cursor:pointer;color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;padding:0}
+.thumb-row{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.thumb{width:30px;height:30px;border-radius:5px;object-fit:cover;border:.5px solid #e5e7eb;cursor:pointer}
+.thumb-more{font-size:11px;color:#6b7280;background:#f9fafb;border-radius:5px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border:.5px solid #e5e7eb;cursor:pointer;font-weight:500}
+.viewer-overlay{background:rgba(0,0,0,.75);border-radius:10px;padding:1.25rem;margin-bottom:1rem;display:none}
+.viewer-main{text-align:center;margin-bottom:12px}
+.viewer-main img{max-width:100%;max-height:360px;border-radius:6px;object-fit:contain}
+.viewer-strip{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
+.viewer-strip img{width:48px;height:48px;object-fit:cover;border-radius:5px;cursor:pointer;border:2px solid transparent;flex-shrink:0}
+.viewer-strip img.sel{border-color:#1D9E75}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:500;display:none;z-index:99;max-width:320px;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.hint{font-size:11px;color:#9ca3af;margin-bottom:.75rem;display:flex;align-items:center;gap:5px}
+@media(max-width:640px){.stats{grid-template-columns:1fr 1fr}.form-grid{grid-template-columns:1fr}.edit-panel{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="header">
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <h2><i class="ti ti-chart-bar" style="color:#1D9E75"></i> MSN 경쟁사 추적기</h2>
+    <span class="badge" id="total-badge">0개</span>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn btn-ai" onclick="openAiPanel()"><i class="ti ti-sparkles"></i> AI 리서치</button>
+    <button class="btn btn-primary" onclick="showTab('add')"><i class="ti ti-plus"></i> 경쟁사 추가</button>
+  </div>
+</div>
+
+<div class="toolbar">
+  <span class="toolbar-label"><i class="ti ti-download" style="font-size:14px;vertical-align:-2px"></i> 내보내기</span>
+  <button class="btn btn-xl btn-sm" onclick="exportExcel()"><i class="ti ti-file-spreadsheet"></i> Excel</button>
+  <button class="btn btn-json" onclick="exportJson()"><i class="ti ti-file-code"></i> JSON 백업</button>
+  <div class="divider-v"></div>
+  <span class="toolbar-label"><i class="ti ti-upload" style="font-size:14px;vertical-align:-2px"></i> 가져오기</span>
+  <button class="btn btn-im btn-sm" onclick="document.getElementById('import-file').click()"><i class="ti ti-folder-open"></i> 파일 열기</button>
+  <input type="file" id="import-file" accept=".xlsx,.json" style="display:none" onchange="handleImportFile(this)"/>
+  <span class="save-status save-ing" id="save-status"><span class="save-dot"></span><span id="save-msg">연결 중</span></span>
+</div>
+
+<div class="tabs">
+  <button class="tab active" id="tab-list" onclick="showTab('list')">경쟁사 목록</button>
+  <button class="tab" id="tab-add" onclick="showTab('add')">+ 새 항목 추가</button>
+  <button class="tab" id="tab-diet" onclick="showTab('diet')">다이어트 분석</button>
+  <button class="tab" id="tab-gallery" onclick="showTab('gallery')">광고 소재</button>
+</div>
+
+<!-- VIEWER -->
+<div class="viewer-overlay" id="viewer">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <span id="viewer-title" style="font-size:14px;font-weight:500;color:#fff"></span>
+    <button class="btn btn-sm" style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#fff" onclick="closeViewer()"><i class="ti ti-x"></i> 닫기</button>
+  </div>
+  <div class="viewer-main"><img id="viewer-img" src="" alt="소재"/></div>
+  <div class="viewer-strip" id="viewer-strip"></div>
+</div>
+
+<!-- LIST -->
+<div id="panel-list">
+  <div class="stats">
+    <div class="stat-card"><div class="val" id="s-total">0</div><div class="lbl">전체 브랜드</div></div>
+    <div class="stat-card"><div class="val" id="s-cats">0</div><div class="lbl">카테고리</div></div>
+    <div class="stat-card"><div class="val" id="s-diet-mid">0</div><div class="lbl">중년타겟 다이어트</div></div>
+    <div class="stat-card"><div class="val" id="s-imgs">0</div><div class="lbl">광고 소재</div></div>
+  </div>
+  <div id="ai-panel" style="display:none" class="ai-box">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:13px;font-weight:500;color:#3C3489;display:flex;align-items:center;gap:6px"><i class="ti ti-robot"></i> AI 리서치 결과</span>
+      <button class="btn btn-sm" onclick="document.getElementById('ai-panel').style.display='none'">닫기</button>
+    </div>
+    <div class="ai-result" id="ai-result-text"></div>
+  </div>
+  <div class="filter-bar">
+    <select id="filter-cat" onchange="renderTable()"><option value="">전체 카테고리</option></select>
+    <select id="filter-mid" onchange="renderTable()">
+      <option value="">전체</option>
+      <option value="yes">중년 타겟 ✓</option>
+      <option value="no">일반 타겟</option>
+      <option value="unknown">미확인</option>
+    </select>
+    <button class="btn btn-sm" onclick="resetFilters()">초기화</button>
+  </div>
+  <div class="hint"><i class="ti ti-info-circle"></i> 행을 클릭하면 바로 수정할 수 있습니다</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:92px">카테고리</th><th style="width:110px">브랜드</th>
+          <th style="width:78px">검색량</th><th style="width:80px">처음 발견</th>
+          <th style="width:95px">마지막 확인</th><th style="width:68px">중년타겟</th>
+          <th style="width:100px">광고 소재</th><th>메모</th><th style="width:32px"></th>
+        </tr>
+      </thead>
+      <tbody id="comp-tbody"><tr><td colspan="9" class="empty"><span class="spinner"></span></td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ADD -->
+<div id="panel-add" style="display:none">
+  <div class="card">
+    <div class="section-title">새 경쟁사 추가</div>
+    <div class="form-grid">
+      <div class="form-group"><label>제품 카테고리 *</label><input type="text" id="f-cat" placeholder="다이어트, 건강기능식품, 뷰티..." list="cat-list"/><datalist id="cat-list"></datalist></div>
+      <div class="form-group"><label>브랜드명 *</label><input type="text" id="f-brand" placeholder="브랜드 또는 제품명"/></div>
+      <div class="form-group"><label>월 검색량</label><input type="text" id="f-volume" placeholder="예: 12,000 / 1.2만"/></div>
+      <div class="form-group"><label>처음 광고 발견일</label><input type="date" id="f-first"/></div>
+      <div class="form-group"><label>마지막 광고 확인일</label><input type="date" id="f-last"/></div>
+      <div class="form-group"><label>광고 URL</label><input type="text" id="f-url" placeholder="https://..."/></div>
+      <div class="form-group full"><label>메모</label><input type="text" id="f-note" placeholder="광고 소구점, 크리에이티브 특이사항 등"/></div>
+      <div class="form-group full">
+        <label>중년/갱년기 여성 타겟 여부</label>
+        <select id="f-mid">
+          <option value="unknown">미확인</option>
+          <option value="yes">예, 중년 타겟</option>
+          <option value="no">일반 타겟</option>
+          <option value="n/a">해당없음</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>광고 소재 이미지 <span style="font-weight:400;color:#9ca3af">(Firebase DB에 저장 · 팀 공유됨)</span></label>
+        <div style="position:relative">
+          <div class="upload-area" id="upload-area"
+            ondragover="event.preventDefault();this.classList.add('drag')"
+            ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
+            <i class="ti ti-photo-plus" style="font-size:26px;color:#9ca3af"></i>
+            <p>클릭하거나 이미지를 드래그하세요</p><p class="sub">자동 압축 · 여러 장 가능</p>
+          </div>
+          <input type="file" id="img-input" accept="image/*" multiple
+            style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer"
+            onchange="handleFiles(this.files)"/>
+        </div>
+        <div class="preview-grid" id="preview-grid"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:1.25rem">
+      <button class="btn btn-primary" onclick="addCompetitor()"><i class="ti ti-check"></i> 저장</button>
+      <button class="btn" onclick="showTab('list')">취소</button>
+    </div>
+    <div id="f-err" style="font-size:12px;color:#ef4444;margin-top:8px;display:none"></div>
+  </div>
+</div>
+
+<!-- DIET -->
+<div id="panel-diet" style="display:none">
+  <div class="card">
+    <div class="section-title">다이어트 분석</div>
+    <div class="stats" style="grid-template-columns:repeat(3,1fr)">
+      <div class="stat-card"><div class="val" id="d-total">0</div><div class="lbl">다이어트 브랜드</div></div>
+      <div class="stat-card"><div class="val" id="d-mid">0</div><div class="lbl" style="color:#1D9E75">중년 타겟</div></div>
+      <div class="stat-card"><div class="val" id="d-ratio">0%</div><div class="lbl">중년 타겟 비율</div></div>
+    </div>
+  </div>
+  <div class="hint"><i class="ti ti-info-circle"></i> 행 클릭으로 수정 가능합니다</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:115px">브랜드명</th><th style="width:85px">검색량</th>
+          <th style="width:80px">처음 발견</th><th style="width:95px">마지막 확인</th>
+          <th style="width:75px">중년타겟</th><th style="width:95px">광고 소재</th><th>메모</th>
+        </tr>
+      </thead>
+      <tbody id="diet-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- GALLERY -->
+<div id="panel-gallery" style="display:none">
+  <div class="filter-bar">
+    <select id="gallery-filter" onchange="renderGallery()"><option value="">전체 카테고리</option></select>
+  </div>
+  <div id="gallery-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px"></div>
+  <div id="gallery-empty" class="empty" style="display:none"><i class="ti ti-photo-off" style="font-size:28px;display:block;margin:0 auto 8px"></i>광고 소재가 없습니다</div>
+</div>
+
+<div id="toast" class="toast"></div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════
+   Firebase 초기화
+══════════════════════════════════════════ */
+const firebaseConfig = {
+  apiKey: "AIzaSyDfOEsdJ5SXIbzk2rXJsqKIH54lk9oQZpI",
+  authDomain: "na-competitor-tracker.firebaseapp.com",
+  databaseURL: "https://na-competitor-tracker-default-rtdb.firebaseio.com",
+  projectId: "na-competitor-tracker",
+  storageBucket: "na-competitor-tracker.firebasestorage.app",
+  messagingSenderId: "386498815251",
+  appId: "1:386498815251:web:67901c708548922a43e6e6",
+  measurementId: "G-3YVP67KK94"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+/* ══════════════════════════════════════════
+   상태 변수
+══════════════════════════════════════════ */
+let competitors = [], pendingImgs = [], editingId = null;
+const CAT_COLORS = {}, PALETTE = ['teal','coral','purple','amber','green'];
+let ci = 0;
+
+/* ══════════════════════════════════════════
+   Firebase 데이터 레이어
+══════════════════════════════════════════ */
+function setSaveStatus(s, msg) {
+  const el = document.getElementById('save-status');
+  el.className = 'save-status ' + (s === 'ok' ? 'save-ok' : 'save-ing');
+  document.getElementById('save-msg').textContent = msg;
+}
+
+// 초기 로딩 + 실시간 동기화
+function load() {
+  setSaveStatus('ing', '연결 중...');
+  db.ref('competitors').on('value', async (snap) => {
+    const data = snap.val() || {};
+    // 편집 중이면 편집 중인 항목 제외하고 업데이트
+    const incoming = Object.values(data);
+    if (editingId !== null) {
+      const editingComp = competitors.find(c => c.id === editingId);
+      competitors = incoming;
+      if (editingComp) {
+        const idx = competitors.findIndex(c => c.id === editingId);
+        if (idx >= 0) competitors[idx] = editingComp;
+      }
+    } else {
+      competitors = incoming;
+    }
+    setSaveStatus('ok', 'Firebase 연동됨 ✓');
+    await renderAll();
+  }, (err) => {
+    setSaveStatus('ing', '⚠ 연결 오류: ' + err.message);
+    showToast('Firebase 연결 실패: ' + err.message, 'warn');
+  });
+}
+
+// 저장 (개별)
+async function saveToDb(comp) {
+  await db.ref('competitors/' + comp.id).set(comp);
+}
+
+// 삭제
+async function deleteFromDb(id) {
+  await db.ref('competitors/' + id).remove();
+}
+
+/* ══════════════════════════════════════════
+   이미지 — Realtime Database에 base64로 저장 (무료)
+══════════════════════════════════════════ */
+async function saveImgs(entryId, imgs) {
+  if (!imgs || !imgs.length) return [];
+  setSaveStatus('ing', '이미지 저장 중...');
+  // 이미지를 DB에 저장 (청크로 나눠서)
+  const data = imgs.map(img => ({ data: img.data, name: img.name || 'img.jpg', added: img.added || today() }));
+  await db.ref('images/' + entryId).set(data);
+  setSaveStatus('ok', 'Firebase 연동됨 ✓');
+  return data;
+}
+
+async function loadImgs(id) {
+  // 먼저 competitor 객체에서 확인 (구버전 호환)
+  const c = competitors.find(x => x.id === id);
+  if (c && c.imgUrls && c.imgUrls.length) {
+    return c.imgUrls.map(url => ({ data: url }));
+  }
+  // DB images 노드에서 로드
+  try {
+    const snap = await db.ref('images/' + id).once('value');
+    return snap.val() || [];
+  } catch(e) { return []; }
+}
+
+async function deleteImgs(id) {
+  try { await db.ref('images/' + id).remove(); } catch(e) {}
+}
+
+/* ══════════════════════════════════════════
+   헬퍼
+══════════════════════════════════════════ */
+function today() { return new Date().toISOString().split('T')[0]; }
+function isDiet(cat) { return cat && cat.toLowerCase().includes('다이어트'); }
+function catColor(c) { if (!CAT_COLORS[c]) { CAT_COLORS[c] = PALETTE[ci % PALETTE.length]; ci++; } return CAT_COLORS[c]; }
+function midLabel(v) {
+  if (v === 'yes') return '<span class="pill pill-green">✓ 중년</span>';
+  if (v === 'no')  return '<span class="pill pill-coral">일반</span>';
+  if (v === 'n/a') return '<span class="pill pill-gray">해당없음</span>';
+  return '<span class="pill pill-gray">미확인</span>';
+}
+function esc(s) { return String(s).replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+/* ══════════════════════════════════════════
+   인라인 편집
+══════════════════════════════════════════ */
+async function toggleEdit(id) {
+  if (editingId === id) { cancelEdit(); return; }
+  if (editingId !== null) cancelEdit();
+  editingId = id;
+  const c = competitors.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('row-' + id)?.classList.add('editing-row');
+  const detailRow = document.getElementById('edit-row-' + id);
+  if (!detailRow) return;
+  detailRow.style.display = '';
+  const imgs = await loadImgs(id);
+  const midOpts = ['yes','no','unknown','n/a'].map(v =>
+    `<option value="${v}"${c.midAged===v?' selected':''}>${v==='yes'?'예(중년)':v==='no'?'일반':v==='n/a'?'해당없음':'미확인'}</option>`
+  ).join('');
+  detailRow.querySelector('td').innerHTML = `
+    <div class="edit-panel">
+      <div><div class="ep-label">카테고리</div><input class="ep-input" id="ep-cat-${id}" value="${esc(c.cat)}" list="cat-list"/></div>
+      <div><div class="ep-label">브랜드명</div><input class="ep-input" id="ep-brand-${id}" value="${esc(c.brand)}"/></div>
+      <div><div class="ep-label">월 검색량</div><input class="ep-input" id="ep-volume-${id}" value="${esc(c.volume||'')}"/></div>
+      <div><div class="ep-label">처음 발견일</div><input class="ep-input" type="date" id="ep-first-${id}" value="${c.first||''}"/></div>
+      <div><div class="ep-label">마지막 확인일</div><input class="ep-input" type="date" id="ep-last-${id}" value="${c.last||''}"/></div>
+      <div><div class="ep-label">중년타겟</div><select class="ep-input" id="ep-mid-${id}">${midOpts}</select></div>
+      <div class="full"><div class="ep-label">메모</div><input class="ep-input" id="ep-note-${id}" value="${esc(c.note||'')}"/></div>
+      <div class="full"><div class="ep-label">광고 URL</div><input class="ep-input" id="ep-url-${id}" value="${esc(c.url||'')}"/></div>
+      <div class="full">
+        <div class="ep-label">광고 소재 (${imgs.length}장 · Firebase 저장)</div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px">
+          ${imgs.slice(0,4).map((img,i)=>`<img src="${img.data}" onclick="openViewer(${id},${i})" style="width:38px;height:38px;object-fit:cover;border-radius:5px;border:.5px solid #e5e7eb;cursor:pointer"/>`).join('')}
+          ${imgs.length>4?`<span style="font-size:11px;color:#6b7280">+${imgs.length-4}장</span>`:''}
+          <div style="position:relative;display:inline-block">
+            <button class="btn btn-sm" style="font-size:11px;padding:3px 8px"><i class="ti ti-photo-plus"></i> 추가</button>
+            <input type="file" accept="image/*" multiple style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer" onchange="addImgsFromInput(${id},this.files)"/>
+          </div>
+          ${imgs.length?`<button class="btn btn-sm btn-danger" style="font-size:11px;padding:3px 8px" onclick="clearImgs(${id})"><i class="ti ti-trash"></i> 삭제</button>`:''}
+        </div>
+      </div>
+    </div>
+    <div class="ep-actions">
+      <button class="btn btn-primary btn-sm" onclick="saveInlineEdit(${id})"><i class="ti ti-check"></i> 수정 저장</button>
+      <button class="btn btn-sm" onclick="cancelEdit()"><i class="ti ti-x"></i> 취소</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteEntry(${id})" style="margin-left:auto"><i class="ti ti-trash"></i> 삭제</button>
+    </div>`;
+}
+
+function cancelEdit() {
+  if (editingId === null) return;
+  document.getElementById('row-' + editingId)?.classList.remove('editing-row');
+  const dr = document.getElementById('edit-row-' + editingId);
+  if (dr) dr.style.display = 'none';
+  editingId = null;
+}
+
+async function saveInlineEdit(id) {
+  const cat   = document.getElementById('ep-cat-'   + id)?.value.trim() || '';
+  const brand = document.getElementById('ep-brand-' + id)?.value.trim() || '';
+  if (!cat || !brand) { showToast('카테고리와 브랜드명은 필수입니다', 'warn'); return; }
+  const idx = competitors.findIndex(x => x.id === id);
+  if (idx < 0) return;
+  const updated = {
+    ...competitors[idx], cat, brand,
+    volume:  document.getElementById('ep-volume-' + id)?.value.trim() || '',
+    first:   document.getElementById('ep-first-'  + id)?.value || today(),
+    last:    document.getElementById('ep-last-'   + id)?.value || today(),
+    note:    document.getElementById('ep-note-'   + id)?.value.trim() || '',
+    url:     document.getElementById('ep-url-'    + id)?.value.trim() || '',
+    midAged: document.getElementById('ep-mid-'    + id)?.value || 'unknown',
+  };
+  cancelEdit();
+  try {
+    await saveToDb(updated);
+    showToast(brand + ' 수정됐습니다', 'ok');
+  } catch(e) { showToast('저장 실패: ' + e.message, 'warn'); }
+}
+
+async function addImgsFromInput(id, files) {
+  const existing = await loadImgs(id);
+  const newImgs = [];
+  for (const f of files) {
+    if (!f.type.startsWith('image/')) continue;
+    newImgs.push({ data: await compressImg(f), name: f.name, added: today() });
+  }
+  if (!newImgs.length) return;
+  const allImgs = await saveImgs(id, [...existing, ...newImgs]);
+  const c = competitors.find(x => x.id === id);
+  if (c) {
+    try {
+      await db.ref('competitors/' + id).update({ imgCount: allImgs.length });
+      cancelEdit();
+      showToast(`소재 ${newImgs.length}장 추가됐습니다`, 'ok');
+    } catch(e) { showToast('저장 실패: ' + e.message, 'warn'); }
+  }
+}
+
+async function clearImgs(id) {
+  if (!confirm('광고 소재를 모두 삭제하시겠습니까?')) return;
+  await deleteImgs(id);
+  try {
+    await db.ref('competitors/' + id).update({ imgUrls: [], imgCount: 0 });
+    cancelEdit();
+    showToast('광고 소재가 삭제됐습니다', 'ok');
+  } catch(e) { showToast('삭제 실패: ' + e.message, 'warn'); }}
+
+/* ══════════════════════════════════════════
+   탭
+══════════════════════════════════════════ */
+function showTab(t) {
+  ['list','add','diet','gallery'].forEach(id => {
+    document.getElementById('panel-' + id).style.display = id === t ? 'block' : 'none';
+    document.getElementById('tab-' + id)?.classList.toggle('active', id === t);
+  });
+  if (t !== 'list') cancelEdit();
+  closeViewer();
+  if (t === 'diet') renderDiet();
+  if (t === 'gallery') renderGallery();
+  if (t === 'list') renderTable();
+}
+
+/* ══════════════════════════════════════════
+   경쟁사 추가
+══════════════════════════════════════════ */
+async function addCompetitor() {
+  const cat   = document.getElementById('f-cat').value.trim();
+  const brand = document.getElementById('f-brand').value.trim();
+  const err   = document.getElementById('f-err');
+  if (!cat || !brand) { err.textContent='카테고리와 브랜드명은 필수입니다.'; err.style.display='block'; return; }
+  err.style.display = 'none';
+
+  const entry = {
+    id:       Date.now(),
+    cat, brand,
+    volume:   document.getElementById('f-volume').value.trim(),
+    first:    document.getElementById('f-first').value || today(),
+    last:     document.getElementById('f-last').value || today(),
+    url:      document.getElementById('f-url').value.trim(),
+    note:     document.getElementById('f-note').value.trim(),
+    midAged:  document.getElementById('f-mid')?.value || 'unknown',
+    imgUrls:  [],
+    imgCount: 0,
+  };
+
+  if (pendingImgs.length) {
+    const uploaded = await saveImgs(entry.id, [...pendingImgs]);
+    entry.imgCount = uploaded.length;
+  }
+
+  try {
+    await saveToDb(entry);
+    pendingImgs = []; renderPreviews();
+    ['f-cat','f-brand','f-volume','f-first','f-last','f-url','f-note'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('f-mid').value = 'unknown';
+    showTab('list');
+    showToast(brand + ' 추가됐습니다', 'ok');
+  } catch(e) { showToast('저장 실패: ' + e.message, 'warn'); }
+}
+
+/* ══════════════════════════════════════════
+   삭제 / 마지막확인
+══════════════════════════════════════════ */
+async function deleteEntry(id) {
+  if (!confirm('삭제하시겠습니까?')) return;
+  cancelEdit();
+  await deleteImgs(id);
+  try {
+    await deleteFromDb(id);
+  } catch(e) { showToast('삭제 실패: ' + e.message, 'warn'); }
+}
+
+async function updateLast(id) {
+  const c = competitors.find(x => x.id === id);
+  if (c) {
+    try {
+      await db.ref('competitors/' + id).update({ last: today() });
+    } catch(e) { showToast('저장 실패', 'warn'); }
+  }
+}
+
+/* ══════════════════════════════════════════
+   이미지 처리
+══════════════════════════════════════════ */
+function compressImg(file) {
+  return new Promise(res => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX=480; let w=img.width, h=img.height;
+        if (w>MAX) { h=Math.round(h*MAX/w); w=MAX; }
+        const c=document.createElement('canvas'); c.width=w; c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h);
+        res(c.toDataURL('image/jpeg',.65));
+      }; img.src=e.target.result;
+    }; reader.readAsDataURL(file);
+  });
+}
+async function handleFiles(files) {
+  for (const f of files) { if (!f.type.startsWith('image/')) continue; pendingImgs.push({data:await compressImg(f),name:f.name,added:today()}); }
+  renderPreviews();
+}
+function handleDrop(e) { e.preventDefault(); document.getElementById('upload-area')?.classList.remove('drag'); handleFiles(e.dataTransfer.files); }
+function renderPreviews() {
+  document.getElementById('preview-grid').innerHTML = pendingImgs.map((img,i) =>
+    `<div class="preview-item"><img src="${img.data}"/><button class="preview-del" onclick="pendingImgs.splice(${i},1);renderPreviews()">✕</button></div>`
+  ).join('');
+}
+
+/* ══════════════════════════════════════════
+   뷰어
+══════════════════════════════════════════ */
+let vImgs=[], vIdx=0;
+async function openViewer(id,idx) {
+  const c=competitors.find(x=>x.id===id); if(!c)return;
+  const imgs=await loadImgs(id); if(!imgs.length)return;
+  vImgs=imgs; vIdx=idx||0;
+  document.getElementById('viewer').style.display='block';
+  document.getElementById('viewer-title').textContent=c.brand+' 광고 소재';
+  setVImg(vIdx);
+  document.getElementById('viewer').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function setVImg(i) {
+  vIdx=i;
+  document.getElementById('viewer-img').src=vImgs[i].data;
+  document.getElementById('viewer-strip').innerHTML=vImgs.map((img,j)=>`<img src="${img.data}" class="${j===i?'sel':''}" onclick="setVImg(${j})"/>`).join('');
+}
+function closeViewer() { document.getElementById('viewer').style.display='none'; vImgs=[]; }
+
+/* ══════════════════════════════════════════
+   렌더링
+══════════════════════════════════════════ */
+async function thumbCell(c) {
+  const imgs = await loadImgs(c.id);
+  if (!imgs.length) return `<div style="position:relative;display:inline-block"><button class="btn btn-sm" style="font-size:11px;padding:3px 7px"><i class="ti ti-photo-plus"></i></button><input type="file" accept="image/*" multiple style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer" onchange="quickAddImg(${c.id},this.files)"/></div>`;
+  const show = imgs.slice(0,2), more = imgs.length-2;
+  return `<div class="thumb-row">${show.map((img,i)=>`<img class="thumb" src="${img.data}" onclick="event.stopPropagation();openViewer(${c.id},${i})"/>`).join('')}${more>0?`<span class="thumb-more" onclick="event.stopPropagation();openViewer(${c.id},2)">+${more}</span>`:''}</div>`;
+}
+
+async function quickAddImg(id, files) {
+  event.stopPropagation();
+  const existing = await loadImgs(id);
+  const newImgs = [];
+  for (const f of files) { if (!f.type.startsWith('image/')) continue; newImgs.push({data:await compressImg(f),name:f.name,added:today()}); }
+  if (!newImgs.length) return;
+  const all = await saveImgs(id, [...existing, ...newImgs]);
+  await db.ref('competitors/' + id).update({ imgCount: all.length });
+  showToast(`소재 ${newImgs.length}장 추가됐습니다`, 'ok');
+}
+
+async function renderTable() {
+  const catF=document.getElementById('filter-cat').value, midF=document.getElementById('filter-mid').value;
+  let rows=competitors.filter(c=>{if(catF&&c.cat!==catF)return false;if(midF&&c.midAged!==midF)return false;return true;});
+  const tbody=document.getElementById('comp-tbody');
+  if (!rows.length) { tbody.innerHTML='<tr><td colspan="9" class="empty"><i class="ti ti-inbox" style="font-size:24px;display:block;margin:0 auto 8px"></i>표시할 데이터가 없습니다</td></tr>'; return; }
+  tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:12px"><span class="spinner"></span></td></tr>';
+  const prev=editingId; editingId=null;
+  const html=await Promise.all(rows.map(async c=>{const tc=await thumbCell(c);const isEd=prev===c.id;
+    return `<tr class="data-row${isEd?' editing-row':''}" id="row-${c.id}" onclick="toggleEdit(${c.id})">
+      <td><span class="pill pill-${catColor(c.cat)}">${c.cat}</span></td>
+      <td style="font-weight:500">${c.brand}</td>
+      <td style="font-size:12px;color:#6b7280">${c.volume||'-'}</td>
+      <td style="font-size:12px;color:#6b7280">${c.first||'-'}</td>
+      <td><div style="display:flex;align-items:center;gap:4px">
+        <span style="font-size:12px">${c.last||'-'}</span>
+        <button class="btn btn-sm" style="padding:2px 5px;font-size:11px" onclick="event.stopPropagation();updateLast(${c.id})"><i class="ti ti-refresh"></i></button>
+      </div></td>
+      <td>${midLabel(c.midAged)}</td>
+      <td onclick="event.stopPropagation()">${tc}</td>
+      <td style="font-size:12px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px" title="${c.note||''}">${c.note||'-'}</td>
+      <td style="color:#9ca3af;text-align:center"><i class="ti ti-chevron-down"></i></td>
+    </tr>
+    <tr class="editing-detail" id="edit-row-${c.id}" style="display:${isEd?'':'none'}">
+      <td colspan="9"><div style="height:4px"></div></td>
+    </tr>`;}));
+  tbody.innerHTML=html.join('');
+  if (prev!==null) { editingId=null; setTimeout(()=>toggleEdit(prev),0); }
+}
+
+async function renderDiet() {
+  const diet=competitors.filter(c=>isDiet(c.cat)), mid=diet.filter(c=>c.midAged==='yes');
+  document.getElementById('d-total').textContent=diet.length;
+  document.getElementById('d-mid').textContent=mid.length;
+  document.getElementById('d-ratio').textContent=diet.length?Math.round(mid.length/diet.length*100)+'%':'0%';
+  const tbody=document.getElementById('diet-tbody');
+  if (!diet.length) { tbody.innerHTML='<tr><td colspan="7" class="empty">다이어트 카테고리 없음</td></tr>'; return; }
+  const sorted=[...diet].sort((a,b)=>(b.midAged==='yes')-(a.midAged==='yes'));
+  const html=await Promise.all(sorted.map(async c=>{const tc=await thumbCell(c);
+    return `<tr class="data-row" onclick="showTab('list');setTimeout(()=>toggleEdit(${c.id}),100)">
+      <td style="font-weight:500">${c.brand}</td><td style="font-size:12px">${c.volume||'-'}</td>
+      <td style="font-size:12px;color:#6b7280">${c.first||'-'}</td>
+      <td><div style="display:flex;align-items:center;gap:4px"><span style="font-size:12px">${c.last||'-'}</span>
+      <button class="btn btn-sm" style="padding:2px 5px;font-size:11px" onclick="event.stopPropagation();updateLast(${c.id})"><i class="ti ti-refresh"></i></button></div></td>
+      <td>${midLabel(c.midAged)}</td><td onclick="event.stopPropagation()">${tc}</td>
+      <td style="font-size:12px;color:#6b7280">${c.note||'-'}</td></tr>`;}));
+  tbody.innerHTML=html.join('');
+}
+
+async function renderGallery() {
+  const filter=document.getElementById('gallery-filter').value;
+  const grid=document.getElementById('gallery-grid'), empty=document.getElementById('gallery-empty');
+  const src=filter?competitors.filter(c=>c.cat===filter):competitors;
+  const withImgs=src.filter(c=>c.imgCount>0);
+  if (!withImgs.length) { grid.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  const cards=await Promise.all(withImgs.map(async c=>{const imgs=await loadImgs(c.id);if(!imgs.length)return'';
+    return `<div class="card" style="padding:.75rem;cursor:pointer" onclick="openViewer(${c.id},0)">
+      <div style="aspect-ratio:4/3;overflow:hidden;border-radius:6px;margin-bottom:8px;background:#f9fafb">
+        <img src="${imgs[0].data}" style="width:100%;height:100%;object-fit:cover"/></div>
+      <div style="font-weight:500;font-size:13px">${c.brand}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
+        <span class="pill pill-${catColor(c.cat)}" style="font-size:10px">${c.cat}</span>
+        <span style="font-size:11px;color:#9ca3af">${imgs.length}장</span></div></div>`;}));
+  grid.innerHTML=cards.filter(Boolean).join('');
+}
+
+function renderStats() {
+  const cats=new Set(competitors.map(c=>c.cat)).size;
+  const dietMid=competitors.filter(c=>isDiet(c.cat)&&c.midAged==='yes').length;
+  const totalImgs=competitors.reduce((s,c)=>s+(c.imgCount||0),0);
+  document.getElementById('s-total').textContent=competitors.length;
+  document.getElementById('s-cats').textContent=cats;
+  document.getElementById('s-diet-mid').textContent=dietMid;
+  document.getElementById('s-imgs').textContent=totalImgs;
+  document.getElementById('total-badge').textContent=competitors.length+'개';
+}
+function updateCatFilter() {
+  const cats=[...new Set(competitors.map(c=>c.cat))].sort();
+  ['filter-cat','gallery-filter'].forEach(id=>{const sel=document.getElementById(id),cur=sel.value;sel.innerHTML='<option value="">전체 카테고리</option>'+cats.map(c=>`<option${c===cur?' selected':''}>${c}</option>`).join('');});
+  document.getElementById('cat-list').innerHTML=cats.map(c=>`<option value="${c}">`).join('');
+}
+function resetFilters() { document.getElementById('filter-cat').value=''; document.getElementById('filter-mid').value=''; renderTable(); }
+async function renderAll() { renderStats(); updateCatFilter(); await renderTable(); }
+
+/* ══════════════════════════════════════════
+   내보내기 / 가져오기
+══════════════════════════════════════════ */
+function exportExcel() {
+  if (!competitors.length) { showToast('내보낼 데이터가 없습니다','warn'); return; }
+  const rows=competitors.map(c=>({'카테고리':c.cat,'브랜드명':c.brand,'월 검색량':c.volume||'','처음 발견일':c.first||'','마지막 확인일':c.last||'','중년타겟여부':c.midAged==='yes'?'예':c.midAged==='no'?'아님':c.midAged==='n/a'?'해당없음':'미확인','광고URL':c.url||'','메모':c.note||'','소재 수':c.imgCount||0}));
+  const ws=XLSX.utils.json_to_sheet(rows);ws['!cols']=[{wch:14},{wch:18},{wch:12},{wch:14},{wch:14},{wch:12},{wch:30},{wch:40},{wch:8}];
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'MSN 경쟁사');XLSX.writeFile(wb,'MSN_경쟁사_'+today()+'.xlsx');
+  showToast('Excel 파일 다운로드됩니다','ok');
+}
+
+async function exportJson() {
+  if (!competitors.length) { showToast('내보낼 데이터가 없습니다','warn'); return; }
+  const backup={version:4,exportedAt:new Date().toISOString(),competitors};
+  const blob=new Blob([JSON.stringify(backup)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='MSN_경쟁사_백업_'+today()+'.json';a.click();URL.revokeObjectURL(url);
+  showToast('JSON 백업 파일 다운로드됩니다','ok');
+}
+
+function handleImportFile(input) { const file=input.files[0];if(!file)return;const ext=file.name.split('.').pop().toLowerCase();if(ext==='xlsx'||ext==='xls')importExcel(file);else if(ext==='json')importJson(file);else showToast('.xlsx 또는 .json 파일만 가능합니다','warn');input.value=''; }
+
+function importExcel(file) {
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try {
+      const wb=XLSX.read(e.target.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws);
+      if (!rows.length) { showToast('데이터가 없습니다','warn'); return; }
+      if (!confirm(`파일에 ${rows.length}개 브랜드가 있습니다.\n기존 데이터에 추가할까요?\n[취소]를 누르면 전체 교체됩니다.`)) {
+        await db.ref('competitors').remove();
+      }
+      const parsed=rows.map(r=>({id:Date.now()+Math.floor(Math.random()*9999),cat:String(r['카테고리']||'').trim(),brand:String(r['브랜드명']||'').trim(),volume:String(r['월 검색량']||'').trim(),first:String(r['처음 발견일']||'').trim(),last:String(r['마지막 확인일']||'').trim(),midAged:r['중년타겟여부']==='예'?'yes':r['중년타겟여부']==='아님'?'no':r['중년타겟여부']==='해당없음'?'n/a':'unknown',url:String(r['광고URL']||'').trim(),note:String(r['메모']||'').trim(),imgUrls:[],imgCount:0})).filter(r=>r.cat&&r.brand);
+      const updates={};parsed.forEach(c=>{updates[c.id]=c;});
+      await db.ref('competitors').update(updates);
+      showToast(`${parsed.length}개 브랜드 가져오기 완료`,'ok');
+    } catch(err) { showToast('파일을 읽을 수 없습니다: '+err.message,'warn'); }
+  }; reader.readAsBinaryString(file);
+}
+
+async function importJson(file) {
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try {
+      const backup=JSON.parse(e.target.result);const comps=backup.competitors||[];
+      if (!comps.length) { showToast('데이터가 없습니다','warn'); return; }
+      if (!confirm(`파일에 ${comps.length}개 브랜드가 있습니다.\n기존 데이터에 추가할까요?\n[취소]를 누르면 전체 교체됩니다.`)) {
+        await db.ref('competitors').remove();
+      }
+      const updates={};
+      comps.forEach(c=>{
+        // imgUrls가 없고 이전 버전 이미지라면 빈 배열로
+        if (!c.imgUrls) c.imgUrls = [];
+        if (!c.imgCount) c.imgCount = 0;
+        updates[c.id]=c;
+      });
+      await db.ref('competitors').update(updates);
+      showToast(`${comps.length}개 브랜드 가져오기 완료`,'ok');
+    } catch(err) { showToast('파일을 읽을 수 없습니다: '+err.message,'warn'); }
+  }; reader.readAsText(file);
+}
+
+/* ══════════════════════════════════════════
+   토스트 & AI
+══════════════════════════════════════════ */
+let tTimer=null;
+function showToast(msg,type) {
+  const el=document.getElementById('toast');el.textContent=msg;
+  el.style.background=type==='ok'?'#EAF3DE':'#FAEEDA';el.style.color=type==='ok'?'#3B6D11':'#633806';
+  el.style.border='.5px solid '+(type==='ok'?'#C0DD97':'#FAC775');el.style.display='block';
+  if(tTimer)clearTimeout(tTimer);tTimer=setTimeout(()=>el.style.display='none',3500);
+}
+
+function openAiPanel() { document.getElementById('ai-panel').style.display='block';document.getElementById('ai-result-text').textContent='';if(!competitors.length){document.getElementById('ai-result-text').textContent='등록된 경쟁사가 없습니다.';return;}runAiResearch(); }
+async function runAiResearch() {
+  const el=document.getElementById('ai-result-text');el.innerHTML='<span class="spinner"></span> 분석 중...';
+  const brands=competitors.map(c=>`${c.cat} / ${c.brand}`).join('\n');
+  try {
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:`MSN 광고 경쟁사:\n${brands}\n\n각 브랜드의 네이버/구글 예상 월 검색량(한국), 주요 타겟층, 다이어트 브랜드는 중년/갱년기 여성 타겟 여부, 특이사항을 표 형식으로 정리해주세요. 한국어로 답변.`}]})});
+    const d=await r.json();el.textContent=d.content?.filter(x=>x.type==='text').map(x=>x.text).join('')||'결과 없음';
+  } catch(e) { el.textContent='오류: '+e.message; }
+}
+
+/* ── 시작 ─────────────────────────────────────── */
+load();
+</script>
+</body>
+</html>
+
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
