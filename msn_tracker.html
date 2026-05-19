@@ -5,13 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>MSN 경쟁사 추적기</title>
 
-<!-- Firebase SDK --><!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>MSN 경쟁사 추적기</title>
-
 <!-- Firebase SDK (Storage 제거) -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -812,10 +805,16 @@ load();
 </script>
 </body>
 </html>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>MSN 경쟁사 추적기</title>
 
+<!-- Firebase SDK (Storage 제거) -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 
 <!-- Icons & XLSX -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css"/>
@@ -1022,7 +1021,7 @@ tr.editing-detail{border-bottom:.5px solid #e5e7eb}
         </select>
       </div>
       <div class="form-group full">
-        <label>광고 소재 이미지 <span style="font-weight:400;color:#9ca3af">(Firebase에 저장 · 팀 공유됨)</span></label>
+        <label>광고 소재 이미지 <span style="font-weight:400;color:#9ca3af">(Firebase DB에 저장 · 팀 공유됨)</span></label>
         <div style="position:relative">
           <div class="upload-area" id="upload-area"
             ondragover="event.preventDefault();this.classList.add('drag')"
@@ -1097,8 +1096,7 @@ const firebaseConfig = {
   measurementId: "G-3YVP67KK94"
 };
 firebase.initializeApp(firebaseConfig);
-const db      = firebase.database();
-const storage = firebase.storage();
+const db = firebase.database();
 
 /* ══════════════════════════════════════════
    상태 변수
@@ -1152,48 +1150,33 @@ async function deleteFromDb(id) {
 }
 
 /* ══════════════════════════════════════════
-   이미지 (Firebase Storage)
+   이미지 — Realtime Database에 base64로 저장 (무료)
 ══════════════════════════════════════════ */
-async function uploadImage(entryId, imgData, filename) {
-  const path = `images/${entryId}/${Date.now()}_${filename || 'img.jpg'}`;
-  const ref = storage.ref(path);
-  const snap = await ref.putString(imgData, 'data_url');
-  return await snap.ref.getDownloadURL();
-}
-
 async function saveImgs(entryId, imgs) {
   if (!imgs || !imgs.length) return [];
-  setSaveStatus('ing', '이미지 업로드 중...');
-  const result = [];
-  for (const img of imgs) {
-    if (img.data && img.data.startsWith('http')) {
-      result.push(img); // 이미 URL
-    } else if (img.data && img.data.startsWith('data:')) {
-      try {
-        const url = await uploadImage(entryId, img.data, img.name || 'img.jpg');
-        result.push({ data: url, name: img.name, added: img.added });
-      } catch(e) {
-        console.error('이미지 업로드 실패:', e);
-        result.push(img); // 실패 시 base64 유지
-      }
-    }
-  }
+  setSaveStatus('ing', '이미지 저장 중...');
+  // 이미지를 DB에 저장 (청크로 나눠서)
+  const data = imgs.map(img => ({ data: img.data, name: img.name || 'img.jpg', added: img.added || today() }));
+  await db.ref('images/' + entryId).set(data);
   setSaveStatus('ok', 'Firebase 연동됨 ✓');
-  return result;
+  return data;
 }
 
 async function loadImgs(id) {
+  // 먼저 competitor 객체에서 확인 (구버전 호환)
   const c = competitors.find(x => x.id === id);
-  if (!c || !c.imgUrls || !c.imgUrls.length) return [];
-  return c.imgUrls.map(url => ({ data: url }));
+  if (c && c.imgUrls && c.imgUrls.length) {
+    return c.imgUrls.map(url => ({ data: url }));
+  }
+  // DB images 노드에서 로드
+  try {
+    const snap = await db.ref('images/' + id).once('value');
+    return snap.val() || [];
+  } catch(e) { return []; }
 }
 
 async function deleteImgs(id) {
-  try {
-    const listRef = storage.ref('images/' + id);
-    const list = await listRef.listAll();
-    await Promise.all(list.items.map(item => item.delete()));
-  } catch(e) {}
+  try { await db.ref('images/' + id).remove(); } catch(e) {}
 }
 
 /* ══════════════════════════════════════════
@@ -1296,11 +1279,10 @@ async function addImgsFromInput(id, files) {
   }
   if (!newImgs.length) return;
   const allImgs = await saveImgs(id, [...existing, ...newImgs]);
-  const urls = allImgs.map(img => img.data);
   const c = competitors.find(x => x.id === id);
   if (c) {
     try {
-      await db.ref('competitors/' + id).update({ imgUrls: urls, imgCount: urls.length });
+      await db.ref('competitors/' + id).update({ imgCount: allImgs.length });
       cancelEdit();
       showToast(`소재 ${newImgs.length}장 추가됐습니다`, 'ok');
     } catch(e) { showToast('저장 실패: ' + e.message, 'warn'); }
@@ -1314,8 +1296,7 @@ async function clearImgs(id) {
     await db.ref('competitors/' + id).update({ imgUrls: [], imgCount: 0 });
     cancelEdit();
     showToast('광고 소재가 삭제됐습니다', 'ok');
-  } catch(e) { showToast('삭제 실패: ' + e.message, 'warn'); }
-}
+  } catch(e) { showToast('삭제 실패: ' + e.message, 'warn'); }}
 
 /* ══════════════════════════════════════════
    탭
@@ -1357,8 +1338,7 @@ async function addCompetitor() {
 
   if (pendingImgs.length) {
     const uploaded = await saveImgs(entry.id, [...pendingImgs]);
-    entry.imgUrls  = uploaded.map(img => img.data);
-    entry.imgCount = entry.imgUrls.length;
+    entry.imgCount = uploaded.length;
   }
 
   try {
@@ -1458,8 +1438,7 @@ async function quickAddImg(id, files) {
   for (const f of files) { if (!f.type.startsWith('image/')) continue; newImgs.push({data:await compressImg(f),name:f.name,added:today()}); }
   if (!newImgs.length) return;
   const all = await saveImgs(id, [...existing, ...newImgs]);
-  const urls = all.map(img => img.data);
-  await db.ref('competitors/' + id).update({ imgUrls: urls, imgCount: urls.length });
+  await db.ref('competitors/' + id).update({ imgCount: all.length });
   showToast(`소재 ${newImgs.length}장 추가됐습니다`, 'ok');
 }
 
